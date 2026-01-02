@@ -31,6 +31,12 @@ struct Args {
 
     #[arg(short = 'l', long = "line-numbers", help = "Show line numbers")]
     line_numbers: bool,
+
+    #[arg(short = 's', long = "start-line", help = "Start line number")]
+    start_line: Option<usize>,
+
+    #[arg(short = 'e', long = "end-line", help = "End line number")]
+    end_line: Option<usize>,
 }
 
 // Main function - entry point of the program
@@ -64,17 +70,28 @@ fn main() {
     // Wrap stdout in a BufWriter for better performance (batches writes instead of flushing each time)
     let mut handle = BufWriter::new(stdout.lock());
 
+    // Determine the line range to display
+    let start = args.start_line.unwrap_or(1);
+    let end = args.end_line.unwrap_or(usize::MAX);
+
     // Check if plain mode flag is set
     if args.plain {
         // In plain mode, just write the content without syntax highlighting
         if args.line_numbers {
             // With line numbers
-            for (line_number, line) in LinesWithEndings::from(&content).enumerate() {
+            for (line_number, line) in LinesWithEndings::from(&content)
+                .enumerate()
+                .skip(start.saturating_sub(1))
+                .take(end.saturating_sub(start - 1))
+            {
                 write!(handle, "{:4} {}", line_number + 1, line).unwrap();
             }
         } else {
             // Without line numbers
-            for line in LinesWithEndings::from(&content) {
+            for line in LinesWithEndings::from(&content)
+                .skip(start.saturating_sub(1))
+                .take(end.saturating_sub(start - 1))
+            {
                 write!(handle, "{}", line).unwrap();
             }
         }
@@ -84,7 +101,11 @@ fn main() {
         // In syntax highlighting mode:
         if args.line_numbers {
             // With line numbers and syntax highlighting
-            for (line_number, line) in LinesWithEndings::from(&content).enumerate() {
+            for (line_number, line) in LinesWithEndings::from(&content)
+                .enumerate()
+                .skip(start.saturating_sub(1))
+                .take(end.saturating_sub(start - 1))
+            {
                 write!(handle, "{:4} ", line_number + 1).unwrap();
                 // Highlight the line and get back a vector of (Style, text) pairs
                 let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
@@ -95,7 +116,10 @@ fn main() {
             }
         } else {
             // Without line numbers, just syntax highlighting
-            for line in LinesWithEndings::from(&content) {
+            for line in LinesWithEndings::from(&content)
+                .skip(start.saturating_sub(1))
+                .take(end.saturating_sub(start - 1))
+            {
                 // Highlight the line and get back a vector of (Style, text) pairs
                 let ranges: Vec<(Style, &str)> = h.highlight_line(line, &ps).unwrap();
                 // Convert the styled ranges to ANSI escape codes for terminal colors
